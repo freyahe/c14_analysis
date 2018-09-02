@@ -46,7 +46,6 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age_random=50e3):
     Data_UTh = Input_data['U/Th Age BP']
     Data_UTh2SD =  Input_data['U/Th Age 2SE']
     Data_14C =  Input_data['14C Age']
-#    Data_14CSD = Input_data['14C Age SE']
     Data_14C2SD=2*Input_data['14C Age SE']
 
     n_values=len(Data_UTh)
@@ -63,7 +62,7 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age_random=50e3):
 
     
     #Delta14C ausrechnen, um Daten zusätzlich zu den Ellipsen zu plotten
-#    deltaC14_ohne=(np.exp(-(Data_14C/lambda_libby))*np.exp(Data_14C/lambda_new)-1.)*1000    
+
     # seed for random variations of values:
     np.random.seed(3457625575)
     
