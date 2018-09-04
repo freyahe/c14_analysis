@@ -19,14 +19,14 @@ def Reservoir(UTh,intCal, decay,range_age):
     #Difference function
     def diff(UTh):
         return intCal(UTh) - decay(UTh)
-#    print(diff(1.))
-#    print(diff(49.))
 
     #Find intersection by finding root of difference
-#    print(diff(0.))
-#    print(diff(49000.))
 
-#    UTh_intersection = optimize.brentq(diff,0.,50000.)
+    if np.sign(diff(range_age[0]))==np.sign(diff(range_age[1])):
+        print(UTh)
+        print(range_age[0])
+        print(range_age[1])
+
     UTh_intersection = optimize.brentq(diff,range_age[0],range_age[1])
     
     return UTh_intersection
@@ -79,9 +79,6 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age=[0,50e3]):
     intersectionx_list = np.zeros(n_values)
     intersectiony_list = np.zeros(n_values)
     Uncertainty_IntCal_list = np.zeros(n_values)
-    DeltaR_list=np.zeros(n_random)
-    DeltaDelta_list=np.zeros(n_random)
-       
     #Arrazs to store output:
 
     Delta14C_mean=np.zeros(n_values)
@@ -153,25 +150,51 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age=[0,50e3]):
         deltaC14=(np.exp(-xC14/lambda_libby)*np.exp(xUTh/lambda_new)-1.)*1000
 
     
+        DeltaR_list=[]
+        DeltaDelta_list=[]
+        xUTh_list=[]
+        xC14_list=[]
+
         # for each point of cloud use the decay curve and calculate intersection with IntCal. write that into list intersction_point_list and calculate SD over those intersects
         for index_point in range(n_random):
+
             # Only perfrom calculations when xUTh is inside range_age, otherwise discard point from cloud
             if (xUTh[index_point]>range_age[0] and xUTh[index_point]<range_age[1]):
-                def decaypoint(x):
-                    return ((np.exp(x/lambda_new)*np.exp(-(xC14[index_point]/lambda_libby)))-1)*1000.
-                intersection_point = Reservoir(xUTh[index_point],intCal, decaypoint,range_age) #preliminary intersection point wihtout uncertainty of IntCal
-                intersection_point = Reservoir(xUTh[index_point],lambda x: intCal(x)+np.random.randn(1)*intCalSE(intersection_point), decaypoint,range_age) #intersection point wiht uncertainty of IntCal
-                    
-                DeltaR_list[index_point]=(intersection_point-xUTh[index_point])
                 
-                #DeltaDelta C Calculation
-                DeltaDelta_list[index_point] = deltaC14[index_point]-intCal(xUTh[index_point])+np.random.randn(1)*intCalSE(xUTh[index_point])
-        
+                try:
+                    def decaypoint(x):
+                        return ((np.exp(x/lambda_new)*np.exp(-(xC14[index_point]/lambda_libby)))-1)*1000.
+                    intersection_point = Reservoir(xUTh[index_point],intCal, decaypoint,range_age) #preliminary intersection point wihtout uncertainty of IntCal
+                    intersection_point = Reservoir(xUTh[index_point],lambda x: intCal(x)+np.random.randn(1)*intCalSE(intersection_point), decaypoint,range_age) #intersection point wiht uncertainty of IntCal
+                        
+                    
+                    #DeltaR Calculation
+#                    DeltaR_list[index_point]=(intersection_point-xUTh[index_point])
+                    DeltaR_list.append(intersection_point-xUTh[index_point])
+
+                    #DeltaDelta C Calculation
+                    DeltaDelta_list.append(np.squeeze(deltaC14[index_point]-intCal(xUTh[index_point])+np.random.randn(1)*intCalSE(xUTh[index_point])))                    
+                    
+                    xUTh_list.append(xUTh[index_point])
+                    xC14_list.append(xC14[index_point])
+
+
+                except:
+                    print('An error occured in the calculations for xUTh[index_point]=', xUTh[index_point])
         #Calculate parameters for plotting elypses (plots in ka!)
+        xUTh_out=np.array(xUTh_list)
+        xC14_out=np.array(xC14_list)
+        xDeltaDelta_out=np.array(DeltaDelta_list)
+        xDeltaR_out=np.array(DeltaR_list)
+        
+        
+        
+        nDeltaDelta=len(DeltaDelta_list)
+        nDeltaR=len(DeltaR_list)
 
         (Delta14C_mean[index_UTh],Delta14C_std[index_UTh],Delta14C_sigma_x_strich[index_UTh],Delta14C_sigma_y_strich[index_UTh],Delta14C_theta[index_UTh],Delta14C_theta2[index_UTh],xUTh_mean[index_UTh],xUTh_std[index_UTh]) =  calculate_ellipses(xUTh/1000,deltaC14) 
-        (DeltaR_mean[index_UTh],DeltaR_std[index_UTh],DeltaR_sigma_x_strich[index_UTh],DeltaR_sigma_y_strich[index_UTh],DeltaR_theta[index_UTh],DeltaR_theta2[index_UTh],xUTh_mean[index_UTh],xUTh_std[index_UTh]) =  calculate_ellipses(xUTh/1000,DeltaR_list/1000)    
-        (DeltaDelta_mean[index_UTh],DeltaDelta_std[index_UTh],DeltaDelta_sigma_x_strich[index_UTh],DeltaDelta_sigma_y_strich[index_UTh],DeltaDelta_theta[index_UTh],DeltaDelta_theta2[index_UTh],xUTh_mean[index_UTh],xUTh_std[index_UTh]) =  calculate_ellipses(xUTh/1000,DeltaDelta_list)   
+        (DeltaR_mean[index_UTh],DeltaR_std[index_UTh],DeltaR_sigma_x_strich[index_UTh],DeltaR_sigma_y_strich[index_UTh],DeltaR_theta[index_UTh],DeltaR_theta2[index_UTh],xUTh_mean[index_UTh],xUTh_std[index_UTh]) =  calculate_ellipses(xUTh_out/1000,xDeltaR_out/1000)    
+        (DeltaDelta_mean[index_UTh],DeltaDelta_std[index_UTh],DeltaDelta_sigma_x_strich[index_UTh],DeltaDelta_sigma_y_strich[index_UTh],DeltaDelta_theta[index_UTh],DeltaDelta_theta2[index_UTh],xUTh_mean[index_UTh],xUTh_std[index_UTh]) =  calculate_ellipses(xUTh_out/1000,xDeltaDelta_out)   
 
 
     # Write data into output DataFrame:
@@ -183,20 +206,22 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age=[0,50e3]):
     Output_data['Delta14C_sigma_y_strich']=Delta14C_sigma_y_strich
     Output_data['Delta14C_theta']=Delta14C_theta
     Output_data['Delta14C_theta2']=Delta14C_theta2
-     
+
     Output_data['DeltaR_mean']=DeltaR_mean
     Output_data['DeltaR_std']=DeltaR_std
     Output_data['DeltaR_sigma_x_strich']=DeltaR_sigma_x_strich
     Output_data['DeltaR_sigma_y_strich']=DeltaR_sigma_y_strich
     Output_data['DeltaR_theta']=DeltaR_theta
     Output_data['DeltaR_theta2']=DeltaR_theta2
-    
+    Output_data['DeltaR_n']=nDeltaR
+
     Output_data['DeltaDelta_mean']=DeltaDelta_mean
     Output_data['DeltaDelta_std']=DeltaDelta_std
     Output_data['DeltaDelta_sigma_x_strich']=DeltaDelta_sigma_x_strich
     Output_data['DeltaDelta_sigma_y_strich']=DeltaDelta_sigma_y_strich
     Output_data['DeltaDelta_theta']=DeltaDelta_theta
     Output_data['DeltaDelta_theta2']=DeltaDelta_theta2
+    Output_data['DeltaDelta_n']=nDeltaDelta
 
     Output_data['xUTh_mean']=xUTh_mean
     Output_data['xUTh_std']=xUTh_std
@@ -207,7 +232,7 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age=[0,50e3]):
         
 def calculate_ellipses(xUTh,values):    
 #Kovarianzellipsen für Delta berechnen
-    xx = np.cov(xUTh , values )
+    xx = np.cov(xUTh,values)
     cov_delta = xx[0,1]
 
     values_mean = np.mean(values)
