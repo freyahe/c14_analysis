@@ -13,7 +13,7 @@ from matplotlib.patches import Ellipse
 from scipy.interpolate import interp1d
 from scipy import misc
 
-def Reservoir(intCal, decay):
+def Reservoir(UTh,intCal, decay,range_age):
     from scipy import optimize
 
     #Difference function
@@ -23,7 +23,11 @@ def Reservoir(intCal, decay):
 #    print(diff(49.))
 
     #Find intersection by finding root of difference
-    UTh_intersection = optimize.brentq(diff,1000.,49000.)
+#    print(diff(0.))
+#    print(diff(49000.))
+
+#    UTh_intersection = optimize.brentq(diff,0.,50000.)
+    UTh_intersection = optimize.brentq(diff,range_age[0],range_age[1])
     
     return UTh_intersection
 
@@ -39,7 +43,7 @@ def calculate_Delta14C(C14_age,UTh_age):
     deltaC14=(np.exp(-C14_age/lambda_libby)*np.exp(UTh_age/lambda_new)-1.)*1000.
     return deltaC14
     
-def calculations_14c(Input_data,IntCal,n_random = 100, range_age_random=50e3):
+def calculations_14c(Input_data,IntCal,n_random = 100, range_age=[0,50e3]):
 
     #Daten importieren, 2sigma-Fehler
     
@@ -67,7 +71,7 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age_random=50e3):
     np.random.seed(3457625575)
     
     # create random variations of U-Th Age  
-    x = np.linspace(0,range_age_random)
+    x = np.linspace(range_age[0],range_age[1],1000)
     n_range_age_random=len(x)
     y_list = np.zeros(shape=(n_values,n_range_age_random))
     
@@ -127,7 +131,7 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age_random=50e3):
             return misc.derivative(intCal, x, dx=0.01)
         
         #use function reservoir_age which calculates the intersection
-        intersection_x = Reservoir(intCal, decay)
+        intersection_x = Reservoir(Data_UTh[index_UTh],intCal, decay,range_age)
         intersection_y = decay(intersection_x)         
           
         intersectionx_list[index_UTh]=intersection_x
@@ -142,20 +146,26 @@ def calculations_14c(Input_data,IntCal,n_random = 100, range_age_random=50e3):
         xUTh = Data_UTh[index_UTh] + Data_UTh2SD[index_UTh] * np.random.randn(n_random) #make point cloud
         xC14 = Data_14C[index_UTh] + Data_14C2SD[index_UTh] * np.random.randn(n_random)
 
+        #Filter our values below range:
+    
+
+
         deltaC14=(np.exp(-xC14/lambda_libby)*np.exp(xUTh/lambda_new)-1.)*1000
 
     
         # for each point of cloud use the decay curve and calculate intersection with IntCal. write that into list intersction_point_list and calculate SD over those intersects
         for index_point in range(n_random):
-            def decaypoint(x):
-                return ((np.exp(x/lambda_new)*np.exp(-(xC14[index_point]/lambda_libby)))-1)*1000.
-            intersection_point = Reservoir(intCal, decaypoint) #preliminary intersection point wihtout uncertainty of IntCal
-            intersection_point = Reservoir(lambda x: intCal(x)+np.random.randn(1)*intCalSE(intersection_point), decaypoint) #intersection point wiht uncertainty of IntCal
+            # Only perfrom calculations when xUTh is inside range_age, otherwise discard point from cloud
+            if (xUTh[index_point]>range_age[0] and xUTh[index_point]<range_age[1]):
+                def decaypoint(x):
+                    return ((np.exp(x/lambda_new)*np.exp(-(xC14[index_point]/lambda_libby)))-1)*1000.
+                intersection_point = Reservoir(xUTh[index_point],intCal, decaypoint,range_age) #preliminary intersection point wihtout uncertainty of IntCal
+                intersection_point = Reservoir(xUTh[index_point],lambda x: intCal(x)+np.random.randn(1)*intCalSE(intersection_point), decaypoint,range_age) #intersection point wiht uncertainty of IntCal
+                    
+                DeltaR_list[index_point]=(intersection_point-xUTh[index_point])
                 
-            DeltaR_list[index_point]=(intersection_point-xUTh[index_point])
-            
-            #DeltaDelta C Calculation
-            DeltaDelta_list[index_point] = deltaC14[index_point]-intCal(xUTh[index_point])+np.random.randn(1)*intCalSE(xUTh[index_point])
+                #DeltaDelta C Calculation
+                DeltaDelta_list[index_point] = deltaC14[index_point]-intCal(xUTh[index_point])+np.random.randn(1)*intCalSE(xUTh[index_point])
         
         #Calculate parameters for plotting elypses (plots in ka!)
 
